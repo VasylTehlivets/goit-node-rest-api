@@ -7,10 +7,7 @@ require("dotenv").config();
 const PORT = process.env.PORT || 3000;
 const uriDb = process.env.DB_HOST;
 
-const connection = mongoose.connect(uriDb, {
-  autoIndex: true,
-  useUnifiedTopology: true,
-});
+const connection = mongoose.connect(uriDb);
 
 connection
   .then(() => {
