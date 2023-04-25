@@ -86,10 +86,26 @@ const updateSubscription = async (req, res, next) => {
   }
 };
 
+const updateAvatar = async (req, res, next) => {
+  const { path: tmpUpload, originalname } = req.file;
+  const { _id } = req.user;
+  try {
+    const avatarURL = await service.changeAvatar(_id, {
+      tmpUpload,
+      originalname,
+    });
+    return res.status(200).json({ avatarURL });
+  } catch (error) {
+    service.unlinkPath({ tmpUpload });
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getCurrentUser,
   updateSubscription,
+  updateAvatar,
 };
