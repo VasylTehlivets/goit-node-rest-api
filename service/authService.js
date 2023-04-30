@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const path = require("path");
 const fsp = require("fs/promises");
+const { nanoid } = require("nanoid");
+const sendEmail = require("../helpers/sgMail");
 
 const secret = process.env.SECRET;
 const avatarsDir = path.join(__dirname, "../", "public", "avatars");
@@ -14,11 +16,29 @@ const getUser = async ({ email }) => {
 
 const addUser = async ({ email, password }) => {
   const avatarURL = gravatar.url(email);
-  const newUser = new User({ email, password });
+  const verificationToken = nanoid();
+  const newUser = new User({ email, password, avatarURL, verificationToken });
   const { subscription } = newUser;
   newUser.setPassword(password);
   await newUser.save();
-  return { email, subscription, avatarURL };
+  const emailData = {
+    to: email,
+    subject: "Node.js homework",
+    text: "Verify your email",
+    html: `<a target="_blank" href="http://localhost:4000/api/users/verify/${verificationToken}">Verify your email</a>`,
+  };
+  await sendEmail(emailData);
+  return { email, subscription, avatarURL, verificationToken };
+};
+
+const resendEmail = async ({ user }) => {
+  const emailData = {
+    to: user.email,
+    subject: "Node.js homework",
+    text: "Verify your email",
+    html: `<a target="_blank" href="http://localhost:4000/api/users/verify/${user.verificationToken}">Verify your email</a>`,
+  };
+  await sendEmail(emailData);
 };
 
 const addToken = async ({ user }) => {
@@ -35,16 +55,30 @@ const getUserById = (userId) => {
   return User.findOne({ _id: userId });
 };
 
+const getUserByVerificationToken = async ({ verificationToken }) => {
+  return User.findOne({ verificationToken });
+};
+
 const removeToken = async (userId) => {
   return await User.findByIdAndUpdate({ _id: userId }, { token: null });
 };
 
 const updateSubscriptionByEmail = async ({ email, subscription }) => {
   return await User.findOneAndUpdate(
-    email,
+    { email },
     { subscription: subscription },
     { new: true }
   );
+};
+
+const updateVerificationToken = async (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return null;
+  }
+  return await User.findByIdAndUpdate(id, {
+    verify: true,
+    verificationToken: null,
+  });
 };
 
 const changeAvatar = async (_id, { tmpUpload, originalname }) => {
@@ -65,8 +99,11 @@ module.exports = {
   addUser,
   addToken,
   getUserById,
+  getUserByVerificationToken,
   removeToken,
   updateSubscriptionByEmail,
+  updateVerificationToken,
   changeAvatar,
   unlinkPath,
+  resendEmail,
 };

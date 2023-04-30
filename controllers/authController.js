@@ -1,5 +1,44 @@
 const service = require("../service/authService");
 
+const verifyEmail = async (req, res, next) => {
+  const { verificationToken } = req.params;
+  const user = await service.getUserByVerificationToken({ verificationToken });
+  if (!user) {
+    return res.status(404).json({
+      message: "Not found",
+      code: 404,
+    });
+  }
+  try {
+    await service.updateVerificationToken(user._id);
+    return res.status(200).json({
+      message: "Verification successful",
+      code: 200,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const reverifyEmail = async (req, res, next) => {
+  const { email } = req.body;
+  const user = await service.getUser({ email });
+  if (user.verify) {
+    return res.status(400).json({
+      message: "Verification has already been passed",
+    });
+  }
+  try {
+    await service.resendEmail({ user });
+    return res.status(200).json({
+      message: "Verification email sent",
+      code: 200,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const register = async (req, res, next) => {
   const { email, password } = req.body;
   const userEmail = await service.getUser({ email });
@@ -25,9 +64,9 @@ const register = async (req, res, next) => {
 const login = async (req, res, next) => {
   const { email, password } = req.body;
   const user = await service.getUser({ email });
-  if (!user || !user.validPassword(password)) {
+  if (!user || !user.verify || !user.validPassword(password)) {
     return res.status(401).json({
-      message: "Email or password is wrong",
+      message: "Please, verify your email and check whether it's correct",
       code: 401,
       data: "Unauthorized",
     });
@@ -102,6 +141,8 @@ const updateAvatar = async (req, res, next) => {
 };
 
 module.exports = {
+  verifyEmail,
+  reverifyEmail,
   register,
   login,
   logout,
